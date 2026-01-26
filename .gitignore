@@ -1,0 +1,15 @@
+# --- Frontend ---
+node_modules/
+dist/
+build/
+.env
+
+# --- Backend ---
+__pycache__/
+venv/
+.env
+
+# --- AI Training (ไฟล์หนักๆ ห้ามอัพ) ---
+/ai-training/datasets/
+/ai-training/runs/
+*.mp4
