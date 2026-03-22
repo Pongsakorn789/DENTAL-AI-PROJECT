@@ -1,117 +1,102 @@
 // src/pages/Login.jsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FlaskConical, ArrowRight, Mail, AlertCircle } from 'lucide-react';
+import { FlaskConical, AlertCircle } from 'lucide-react';
+import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
+import { jwtDecode } from "jwt-decode";
+
+// ⚠️ เอา Client ID ที่ได้จาก Google Cloud Console มาใส่ตรงนี้
+const GOOGLE_CLIENT_ID = "665789589682-jkevrsqabs1netdc9d56neohpbd1qftd.apps.googleusercontent.com";
 
 const Login = () => {
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleLogin = (e) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
+  const handleGoogleSuccess = (credentialResponse) => {
+    try {
+      // ถอดรหัส Token ที่ Google ส่งมาให้
+      const decodedInfo = jwtDecode(credentialResponse.credential);
+      const userEmail = decodedInfo.email;
 
-    // --- 🛡️ ส่วนสำคัญ: ตรวจสอบ Domain ---
-    // จำลองการโหลด (Delay) นิดหน่อยให้ดูสมจริง
-    setTimeout(() => {
-        const lowerEmail = email.toLowerCase();
+      // --- 🛡️ ตรวจสอบ Domain ว่าใช่นักศึกษา/บุคลากร MFU หรือไม่ ---
+      if (userEmail.endsWith('@lamduan.mfu.ac.th') || userEmail.endsWith('@mfu.ac.th')) {
         
-        // 1. เช็คว่าใช่อีเมลมหาวิทยาลัยหรือไม่?
-        // (อนุญาตทั้ง @lamduan.mfu.ac.th และ @mfu.ac.th)
-        if (lowerEmail.endsWith('@lamduan.mfu.ac.th') || lowerEmail.endsWith('@mfu.ac.th')) {
-            
-            // ✅ ผ่าน: บันทึกข้อมูลจำลอง
-            localStorage.setItem('isLoggedIn', 'true');
-            localStorage.setItem('userEmail', email);
-            // สร้างชื่อปลอมๆ จากอีเมล (เช่น somchai.jai -> Somchai Jai)
-            const nameFromEmail = email.split('@')[0].replace('.', ' '); 
-            localStorage.setItem('userName', nameFromEmail);
-            // รูปโปรไฟล์จำลอง (รูปการ์ตูนตามชื่อ)
-            localStorage.setItem('userPicture', `https://ui-avatars.com/api/?name=${nameFromEmail}&background=0D8ABC&color=fff`);
+        // ✅ ผ่าน: บันทึกข้อมูลจริงที่ได้จาก Google ลง LocalStorage
+        localStorage.setItem('isLoggedIn', 'true');
+        localStorage.setItem('userEmail', userEmail);
+        localStorage.setItem('userName', decodedInfo.name); // ได้ชื่อจริง-นามสกุลจริง
+        localStorage.setItem('userPicture', decodedInfo.picture); // ได้รูปโปรไฟล์จริง
 
-            setLoading(false);
-            navigate('/result'); // ไปหน้าหลัก
+        setError('');
+        navigate('/'); // ล็อกอินสำเร็จ ไปหน้าหลัก
 
-        } else {
-            // ❌ ไม่ผ่าน: แจ้งเตือน
-            setLoading(false);
-            setError('Access Denied: Please use your @lamduan.mfu.ac.th email only.');
-        }
-    }, 800);
+      } else {
+        // ❌ ไม่ผ่าน: แจ้งเตือนและไม่ให้เข้า
+        setError('Access Denied: Please use your @lamduan.mfu.ac.th email only.');
+      }
+    } catch (err) {
+      setError('Login failed. Please try again.');
+      console.error("JWT Decode Error:", err);
+    }
+  };
+
+  const handleGoogleError = () => {
+    setError('Google Sign-In was unsuccessful. Please try again.');
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4 font-sans">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl overflow-hidden animate-fade-in-up">
-        
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-800 p-8 text-center">
-          <div className="flex justify-center mb-4">
-            <div className="bg-white p-3 rounded-xl shadow-lg">
-              <FlaskConical size={32} className="text-blue-600" />
-            </div>
-          </div>
-          <h2 className="text-3xl font-bold text-white mb-2">MFU Dental AI</h2>
-          <p className="text-blue-100">Dental Implant Analysis System</p>
-        </div>
-
-        {/* Form */}
-        <div className="p-8">
-          <div className="mb-6 text-center">
-             <h3 className="text-gray-800 font-semibold text-lg">Student Login</h3>
-             <p className="text-gray-500 text-sm mt-1">Please enter your university email to continue.</p>
-          </div>
-
-          <form onSubmit={handleLogin} className="space-y-6">
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">University Email</label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-3 text-gray-400" size={20} />
-                <input 
-                  type="email" 
-                  required
-                  placeholder="6xxxxxxxx@lamduan.mfu.ac.th"
-                  value={email}
-                  onChange={(e) => {
-                      setEmail(e.target.value);
-                      setError(''); // พิมพ์ใหม่ให้หาย error
-                  }}
-                  className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition
-                    ${error ? 'border-red-300 bg-red-50 focus:ring-red-200' : 'border-gray-200'}`}
-                />
+    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4 font-sans">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl overflow-hidden animate-fade-in-up">
+          
+          {/* Header */}
+          <div className="bg-gradient-to-r from-blue-600 to-blue-800 p-8 text-center">
+            <div className="flex justify-center mb-4">
+              <div className="bg-white p-3 rounded-xl shadow-lg">
+                <FlaskConical size={32} className="text-blue-600" />
               </div>
-              {/* Error Message */}
-              {error && (
-                  <div className="flex items-center gap-2 mt-2 text-red-600 text-sm animate-shake">
-                      <AlertCircle size={16} />
-                      <span>{error}</span>
-                  </div>
-              )}
+            </div>
+            <h2 className="text-3xl font-bold text-white mb-2">MFU Dental AI</h2>
+            <p className="text-blue-100">Dental Implant Analysis System</p>
+          </div>
+
+          {/* Form Area */}
+          <div className="p-8">
+            <div className="mb-8 text-center">
+               <h3 className="text-gray-800 font-semibold text-lg">University Login</h3>
+               <p className="text-gray-500 text-sm mt-1">Please sign in with your MFU Google account to continue.</p>
             </div>
 
-            <button 
-              type="submit" 
-              disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl shadow-md hover:shadow-lg transition duration-200 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-            >
-              {loading ? 'Verifying...' : (
-                <>Sign In <ArrowRight size={20} /></>
-              )}
-            </button>
-          </form>
+            {/* ปุ่ม Google Sign-In */}
+            <div className="flex justify-center mb-4">
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={handleGoogleError}
+                  useOneTap
+                  theme="filled_blue"
+                  shape="rectangular"
+                  size="large"
+                  text="signin_with"
+                />
+            </div>
 
-          <div className="mt-8 pt-6 border-t border-gray-100 text-center">
-            <p className="text-xs text-gray-400">
-              * This system is restricted to Mae Fah Luang University students and staff only.
-            </p>
+            {/* Error Message */}
+            {error && (
+                <div className="flex items-start gap-2 mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm animate-shake">
+                    <AlertCircle size={18} className="mt-0.5 flex-shrink-0" />
+                    <span>{error}</span>
+                </div>
+            )}
+
+            <div className="mt-8 pt-6 border-t border-gray-100 text-center">
+              <p className="text-xs text-gray-400">
+                * This system is restricted to Mae Fah Luang University students and staff only.
+              </p>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </GoogleOAuthProvider>
   );
 };
 

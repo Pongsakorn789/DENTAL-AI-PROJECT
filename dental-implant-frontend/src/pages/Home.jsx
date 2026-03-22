@@ -197,6 +197,8 @@ const Home = () => {
         
         // ✅ ส่งค่า mode ไปให้ Backend ด้วย
         formData.append('mode', aiModel); 
+        const userEmail = localStorage.getItem('userEmail');
+        if (userEmail) formData.append('email', userEmail);
 
         try {
             console.log(`🚀 Sending image to Backend API (Model: ${aiModel})...`);
@@ -212,6 +214,15 @@ const Home = () => {
             }
 
             const resultData = await response.json();
+            
+            // 🌟 [ของใหม่] ดักจับ Error โควต้าเต็ม
+            if (resultData.status === 'error' && resultData.message === 'QUOTA_EXCEEDED') {
+                setAnalysisStatus('idle'); // รีเซ็ตปุ่ม
+                alert(`🚨 Quota Exceeded!\n\nYou have reached your maximum limit (${resultData.limit}/${resultData.limit} scans).\nPlease go to 'Settings > Billing & Plans' to upgrade your account.`);
+                return; // หยุดการทำงาน ไม่ไปหน้า Result
+            }
+            if (resultData.status === 'error') { throw new Error(resultData.message); }
+
             console.log("✅ Data received from Python:", resultData);
 
             // ส่งข้อมูลไปหน้า Result

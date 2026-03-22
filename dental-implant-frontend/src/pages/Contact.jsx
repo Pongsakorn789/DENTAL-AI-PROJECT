@@ -11,15 +11,41 @@ const Contact = () => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
-    const handleSubmit = (e) => {
+   const handleSubmit = async (e) => {
         e.preventDefault();
         setStatus('sending');
-        // MOCK SUBMISSION: จำลองการส่งข้อมูล
-        setTimeout(() => {
-            setStatus('success');
-            setFormData({ name: '', email: '', message: '' });
-            alert("Thank you! Your message has been received (Mock Submission).");
-        }, 1500);
+
+        try {
+            // ดึง URL จาก .env หรือใช้ Localhost
+            const apiUrl = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+            
+            // 🌟 ดึงอีเมลของคนที่ล็อกอินอยู่จาก LocalStorage
+            const userEmail = localStorage.getItem('userEmail'); 
+            
+            const response = await fetch(`${apiUrl}/contact`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                // 🌟 แนบ logged_in_email ส่งพ่วงไปกับข้อมูลฟอร์มด้วย
+                body: JSON.stringify({
+                    ...formData,
+                    logged_in_email: userEmail 
+                })
+            });
+
+            if (response.ok) {
+                setStatus('success');
+                setFormData({ name: '', email: '', message: '' });
+                alert("Thank you! Your message has been sent successfully.");
+            } else {
+                throw new Error("Server error");
+            }
+        } catch (error) {
+            console.error("Error sending message:", error);
+            setStatus('');
+            alert("Failed to send message. Please check your connection and try again.");
+        }
     };
 
     return (
